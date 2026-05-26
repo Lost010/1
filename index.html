@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Link Hasher — HMAC Tool</title>
+<title>Link Vault — AES Link Encryptor</title>
 <style>
   :root {
     --bg: #0f0f1a;
@@ -18,6 +18,8 @@
     --success: #4ade80;
     --fail-bg: #2a0d0d;
     --fail: #f87171;
+    --warn-bg: #2a1f0d;
+    --warn: #fbbf24;
     --mono: 'Courier New', Courier, monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --radius: 10px;
@@ -33,12 +35,9 @@
     align-items: center;
     padding: 40px 16px 60px;
   }
-  header {
-    text-align: center;
-    margin-bottom: 36px;
-  }
+  header { text-align: center; margin-bottom: 36px; }
   header h1 {
-    font-size: 1.9rem;
+    font-size: 2rem;
     font-weight: 700;
     letter-spacing: -0.5px;
     background: linear-gradient(135deg, #a89af9, #7c6af7 60%, #4f8ef7);
@@ -46,45 +45,30 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  header p {
-    color: var(--muted);
-    margin-top: 6px;
-    font-size: 0.9rem;
-  }
+  header p { color: var(--muted); margin-top: 6px; font-size: 0.88rem; }
 
-  .container { width: 100%; max-width: 640px; }
+  .container { width: 100%; max-width: 660px; }
 
-  /* tabs */
-  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
   .tab-btn {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-family: var(--sans);
-    font-size: 0.9rem;
-    padding: 10px 22px;
-    cursor: pointer;
+    background: none; border: none; color: var(--muted);
+    font-family: var(--sans); font-size: 0.9rem;
+    padding: 10px 22px; cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: color .15s, border-color .15s;
     margin-bottom: -1px;
   }
   .tab-btn:hover { color: var(--text); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  /* form */
   label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+    display: block; font-size: 0.78rem; color: var(--muted);
+    letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px;
   }
   .field { margin-bottom: 18px; }
-  input[type=text], input[type=password], select {
+  input[type=text], input[type=password], select, textarea {
     width: 100%;
     background: var(--card);
     border: 1px solid var(--border);
@@ -95,24 +79,18 @@
     border-radius: var(--radius);
     outline: none;
     transition: border-color .15s;
+    resize: none;
   }
-  input:focus, select:focus { border-color: var(--accent); }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   select { font-family: var(--sans); cursor: pointer; }
   option { background: var(--panel); }
 
   .seed-wrap { position: relative; }
-  .seed-wrap input { padding-right: 60px; }
+  .seed-wrap input { padding-right: 64px; }
   .show-btn {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: 0.78rem;
-    cursor: pointer;
-    padding: 4px 6px;
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--muted);
+    font-size: 0.78rem; cursor: pointer; padding: 4px 6px;
     font-family: var(--sans);
   }
   .show-btn:hover { color: var(--text); }
@@ -120,337 +98,382 @@
   .row { display: flex; gap: 14px; }
   .row .field { flex: 1; }
 
-  /* output */
+  /* output box */
   .output-box {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 14px 16px;
     font-family: var(--mono);
-    font-size: 0.83rem;
+    font-size: 0.82rem;
     color: var(--accent);
     word-break: break-all;
-    line-height: 1.6;
-    min-height: 54px;
+    line-height: 1.7;
+    min-height: 64px;
     user-select: all;
-    transition: border-color .15s;
-    position: relative;
+    white-space: pre-wrap;
   }
-  .output-box:empty::before {
-    content: attr(data-placeholder);
-    color: var(--muted);
-    font-style: italic;
-  }
+  .output-box[data-empty="true"] { color: var(--muted); font-style: italic; }
 
-  .stats-row {
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-top: 6px;
-    height: 18px;
-  }
+  .stats-row { font-size: 0.78rem; color: var(--muted); margin-top: 6px; min-height: 18px; }
 
-  /* buttons */
-  .btn-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
-  .btn {
-    background: var(--accent2);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius);
-    font-family: var(--sans);
-    font-size: 0.9rem;
-    padding: 10px 22px;
-    cursor: pointer;
-    transition: background .15s, transform .1s;
-  }
-  .btn:hover { background: var(--accent); }
-  .btn:active { transform: scale(0.97); }
-  .btn.ghost {
-    background: var(--card);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn.ghost:hover { background: var(--border); }
-
-  .copy-status {
-    font-size: 0.82rem;
-    color: var(--success);
-    opacity: 0;
-    transition: opacity .2s;
-  }
-  .copy-status.show { opacity: 1; }
-
-  /* verify result */
-  .verify-result {
+  /* decrypted URL box */
+  .url-result {
     margin-top: 20px;
-    padding: 14px 18px;
+    padding: 16px 18px;
     border-radius: var(--radius);
-    font-size: 0.95rem;
-    font-weight: 500;
     display: none;
   }
-  .verify-result.match {
+  .url-result.ok {
     display: block;
     background: var(--success-bg);
     border: 1px solid #1a5c34;
-    color: var(--success);
   }
-  .verify-result.no-match {
+  .url-result.ok .url-label { font-size: 0.78rem; color: var(--success); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .url-result.ok .url-value {
+    font-family: var(--mono); font-size: 0.9rem; color: var(--text);
+    word-break: break-all; margin-bottom: 12px;
+  }
+  .url-result.ok a.open-btn {
+    display: inline-block;
+    background: var(--success);
+    color: #000;
+    text-decoration: none;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity .15s;
+  }
+  .url-result.ok a.open-btn:hover { opacity: .85; }
+  .url-result.fail {
     display: block;
     background: var(--fail-bg);
     border: 1px solid #5c1a1a;
     color: var(--fail);
+    font-size: 0.9rem;
+    padding: 14px 18px;
   }
 
-  /* info note */
+  /* buttons */
+  .btn-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .btn {
+    background: var(--accent2); color: #fff; border: none;
+    border-radius: var(--radius); font-family: var(--sans);
+    font-size: 0.9rem; padding: 10px 22px; cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn:active { transform: scale(0.97); }
+  .btn.secondary {
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { background: var(--border); }
+
+  .copy-status { font-size: 0.82rem; color: var(--success); opacity: 0; transition: opacity .2s; }
+  .copy-status.show { opacity: 1; }
+
+  /* share link section */
+  .share-section {
+    margin-top: 22px;
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: none;
+  }
+  .share-section.visible { display: block; }
+  .share-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .share-url-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    font-family: var(--mono); font-size: 0.8rem; color: var(--text);
+    word-break: break-all; margin-bottom: 10px; line-height: 1.6;
+  }
+  .share-note { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
   .note {
-    margin-top: 28px;
-    padding: 14px 18px;
+    margin-top: 24px; padding: 14px 18px;
     background: #1a1a30;
     border-left: 3px solid var(--accent2);
     border-radius: 0 var(--radius) var(--radius) 0;
-    font-size: 0.83rem;
-    color: var(--muted);
-    line-height: 1.6;
+    font-size: 0.83rem; color: var(--muted); line-height: 1.6;
   }
   .note strong { color: var(--text); }
 
-  footer {
-    margin-top: 48px;
-    text-align: center;
-    font-size: 0.78rem;
-    color: var(--muted);
+  .algo-badge {
+    display: inline-block; font-size: 0.72rem;
+    background: #2a2a45; color: var(--accent);
+    padding: 2px 8px; border-radius: 4px;
+    font-family: var(--mono); margin-left: 6px;
+    vertical-align: middle;
   }
+
+  footer { margin-top: 48px; text-align: center; font-size: 0.78rem; color: var(--muted); }
   footer a { color: var(--accent); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
 
-  @media (max-width: 480px) {
-    .row { flex-direction: column; gap: 0; }
-  }
+  @media (max-width: 480px) { .row { flex-direction: column; gap: 0; } }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🔗 Link Hasher</h1>
-  <p>HMAC one-way hash for URLs — runs entirely in your browser, nothing is sent anywhere.</p>
+  <h1>🔐 Link Vault</h1>
+  <p>AES-256 link encryption — encrypt a URL with a seed, share the token, decrypt it back.<br>
+  Everything runs in your browser. Nothing leaves your device.</p>
 </header>
 
 <div class="container">
 
-  <!-- tabs -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('generate', this)">Generate Hash</button>
-    <button class="tab-btn" onclick="switchTab('verify', this)">Verify Hash</button>
+    <button class="tab-btn active" onclick="switchTab('encrypt', this)">🔒 Encrypt URL</button>
+    <button class="tab-btn" onclick="switchTab('decrypt', this)">🔓 Decrypt Token</button>
   </div>
 
-  <!-- ── GENERATE TAB ── -->
-  <div id="tab-generate" class="tab-panel active">
+  <!-- ══════════ ENCRYPT TAB ══════════ -->
+  <div id="tab-encrypt" class="tab-panel active">
 
     <div class="field">
-      <label>URL</label>
-      <input type="text" id="url" placeholder="https://example.com/page"
-             value="https://example.com/page" oninput="compute()" />
+      <label>URL to Encrypt</label>
+      <input type="text" id="enc-url" placeholder="https://example.com/secret-page" />
     </div>
 
     <div class="field">
-      <label>Seed / Secret Key</label>
+      <label>Seed / Password <span class="algo-badge">AES-256-GCM</span></label>
       <div class="seed-wrap">
-        <input type="password" id="seed" placeholder="your-secret-seed"
-               value="my-secret-seed" oninput="compute()" />
-        <button class="show-btn" onclick="toggleSeed('seed', this)">show</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label>Algorithm</label>
-        <select id="algo" onchange="compute()">
-          <option value="SHA-256" selected>SHA-256</option>
-          <option value="SHA-384">SHA-384</option>
-          <option value="SHA-512">SHA-512</option>
-          <option value="SHA-1">SHA-1</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Output Format</label>
-        <select id="fmt" onchange="compute()">
-          <option value="hex" selected>Hex</option>
-          <option value="b64">Base64url</option>
-        </select>
+        <input type="password" id="enc-seed" placeholder="your-secret-password" />
+        <button class="show-btn" onclick="toggleSeed('enc-seed', this)">show</button>
       </div>
     </div>
 
     <div class="field">
-      <label>Hash Output</label>
-      <div class="output-box" id="hash-out" data-placeholder="waiting for input…"></div>
-      <div class="stats-row" id="stats"></div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn" onclick="copyHash()">Copy Hash</button>
-      <span class="copy-status" id="copy-status">✓ Copied!</span>
-    </div>
-
-    <div class="note">
-      <strong>How it works:</strong> HMAC(<em>algorithm</em>, key=<em>seed</em>, message=<em>URL</em>).
-      The seed acts as a private key — the same URL + seed always produces the same hash, but
-      <strong>you cannot reverse it</strong> back to the original URL. Use the <em>Verify</em> tab
-      to check whether a URL + seed matches a known hash.
-    </div>
-  </div>
-
-  <!-- ── VERIFY TAB ── -->
-  <div id="tab-verify" class="tab-panel">
-
-    <div class="field">
-      <label>URL to Check</label>
-      <input type="text" id="v-url" placeholder="https://example.com/page" />
-    </div>
-
-    <div class="field">
-      <label>Seed / Secret Key</label>
-      <div class="seed-wrap">
-        <input type="password" id="v-seed" placeholder="your-secret-seed" />
-        <button class="show-btn" onclick="toggleSeed('v-seed', this)">show</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Hash to Verify (hex or base64url)</label>
-      <input type="text" id="v-hash" placeholder="paste the hash here" />
-    </div>
-
-    <div class="field">
-      <label>Algorithm</label>
-      <select id="v-algo">
-        <option value="SHA-256" selected>SHA-256</option>
-        <option value="SHA-384">SHA-384</option>
-        <option value="SHA-512">SHA-512</option>
-        <option value="SHA-1">SHA-1</option>
+      <label>Output Format</label>
+      <select id="enc-fmt">
+        <option value="b64" selected>Base64url (shorter, URL-safe)</option>
+        <option value="hex">Hex (readable)</option>
       </select>
     </div>
 
     <div class="btn-row">
-      <button class="btn" onclick="doVerify()">Verify</button>
+      <button class="btn" onclick="doEncrypt()">Encrypt →</button>
+      <span class="copy-status" id="enc-copy-status">✓ Copied!</span>
     </div>
 
-    <div class="verify-result" id="verify-result"></div>
+    <div id="enc-output-wrap" style="margin-top:20px; display:none;">
+      <div class="field">
+        <label>Encrypted Token</label>
+        <div class="output-box" id="enc-output"></div>
+        <div class="stats-row" id="enc-stats"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" onclick="copyEncrypted()">Copy Token</button>
+        <button class="btn secondary" onclick="copyDecryptLink()">Copy Decrypt Link</button>
+        <span class="copy-status" id="enc-copy2-status">✓ Copied!</span>
+      </div>
+
+      <div class="share-section" id="share-section">
+        <div class="share-title">Shareable decrypt link (token is pre-filled, seed is NOT included)</div>
+        <div class="share-url-box" id="share-url-box"></div>
+        <div class="share-note">Anyone with this link can paste in the token — they still need the seed to decrypt it.</div>
+      </div>
+    </div>
 
     <div class="note">
-      <strong>What this does:</strong> Re-computes the HMAC of the URL + seed and checks if it
-      equals the hash you provide. Accepts both hex and base64url formats. A match means the
-      URL and seed are authentic — a mismatch means something changed or the seed is wrong.
+      <strong>How it works:</strong> Your seed is stretched with PBKDF2 (100k iterations, SHA-256) into a 256-bit AES-GCM key.
+      A random 96-bit IV is generated per encryption. The output token encodes <em>IV + ciphertext</em> together —
+      paste it into the Decrypt tab with the same seed to recover the original URL.
+    </div>
+  </div>
+
+  <!-- ══════════ DECRYPT TAB ══════════ -->
+  <div id="tab-decrypt" class="tab-panel">
+
+    <div class="field">
+      <label>Encrypted Token</label>
+      <textarea id="dec-token" rows="4" placeholder="Paste your encrypted token here (base64url or hex)…"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Seed / Password</label>
+      <div class="seed-wrap">
+        <input type="password" id="dec-seed" placeholder="the secret used to encrypt" />
+        <button class="show-btn" onclick="toggleSeed('dec-seed', this)">show</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="doDecrypt()">Decrypt →</button>
+    </div>
+
+    <div class="url-result" id="dec-result">
+      <div class="url-label">✓ Decrypted URL</div>
+      <div class="url-value" id="dec-url-value"></div>
+      <a class="open-btn" id="dec-open-link" href="#" target="_blank" rel="noopener">Open URL ↗</a>
+    </div>
+
+    <div class="note">
+      <strong>Wrong seed = garbled output.</strong> AES-GCM includes authentication — if the seed is incorrect or
+      the token has been tampered with, decryption will fail with an error rather than returning garbage.
     </div>
   </div>
 
 </div>
 
 <footer>
-  All computation happens in your browser via the <a href="https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto" target="_blank">Web Crypto API</a>.
-  No data leaves your device.
+  Uses <a href="https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto" target="_blank">Web Crypto API</a>
+  (AES-256-GCM + PBKDF2). No libraries, no servers, no tracking.
 </footer>
 
 <script>
-// ── core ─────────────────────────────────────────────────────────────────────
+// ── crypto helpers ───────────────────────────────────────────────────────────
 
-async function hmacHash(url, seed, algo) {
+async function deriveKey(seed, salt) {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(seed),
-    { name: 'HMAC', hash: algo },
-    false, ['sign']
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(seed), 'PBKDF2', false, ['deriveKey']
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(url));
-  const arr = Array.from(new Uint8Array(sig));
-  const hex = arr.map(b => b.toString(16).padStart(2, '0')).join('');
-  const b64 = btoa(String.fromCharCode(...arr))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  return { hex, b64, bits: arr.length * 8 };
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false, ['encrypt', 'decrypt']
+  );
 }
 
-function safeCompare(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+async function encryptURL(url, seed) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveKey(seed, salt);
+  const ct   = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    enc.encode(url)
+  );
+  // pack: [salt(16)] + [iv(12)] + [ciphertext]
+  const combined = new Uint8Array(16 + 12 + ct.byteLength);
+  combined.set(salt, 0);
+  combined.set(iv, 16);
+  combined.set(new Uint8Array(ct), 28);
+  return combined;
 }
 
-// ── generate ─────────────────────────────────────────────────────────────────
+async function decryptToken(tokenBytes, seed) {
+  const salt = tokenBytes.slice(0, 16);
+  const iv   = tokenBytes.slice(16, 28);
+  const ct   = tokenBytes.slice(28);
+  const key  = await deriveKey(seed, salt);
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ct
+  );
+  return new TextDecoder().decode(plain);
+}
 
-async function compute() {
-  const url  = document.getElementById('url').value.trim();
-  const seed = document.getElementById('seed').value;
-  const algo = document.getElementById('algo').value;
-  const fmt  = document.getElementById('fmt').value;
-  const out  = document.getElementById('hash-out');
-  const stats = document.getElementById('stats');
+// ── encoding helpers ──────────────────────────────────────────────────────────
 
-  if (!url || !seed) {
-    out.textContent = '';
-    stats.textContent = '';
-    return;
-  }
+function toHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function toB64(bytes) {
+  let str = '';
+  bytes.forEach(b => str += String.fromCharCode(b));
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+function fromHex(hex) {
+  hex = hex.trim();
+  if (hex.length % 2 !== 0) throw new Error('Invalid hex length');
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) arr[i/2] = parseInt(hex.slice(i,i+2), 16);
+  return arr;
+}
+function fromB64(b64) {
+  b64 = b64.trim().replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+function autoDetectAndDecode(token) {
+  const t = token.trim();
+  if (/^[0-9a-fA-F]+$/.test(t)) return fromHex(t);
+  return fromB64(t);
+}
+
+// ── encrypt ──────────────────────────────────────────────────────────────────
+
+async function doEncrypt() {
+  const url  = document.getElementById('enc-url').value.trim();
+  const seed = document.getElementById('enc-seed').value;
+  const fmt  = document.getElementById('enc-fmt').value;
+
+  if (!url) { alert('Please enter a URL to encrypt.'); return; }
+  if (!seed) { alert('Please enter a seed/password.'); return; }
 
   try {
-    const r = await hmacHash(url, seed, algo);
-    const val = fmt === 'hex' ? r.hex : r.b64;
-    out.textContent = val;
-    stats.textContent = `${algo} · ${r.bits} bits · ${val.length} chars · ${fmt}`;
+    const bytes = await encryptURL(url, seed);
+    const token = fmt === 'hex' ? toHex(bytes) : toB64(bytes);
+
+    document.getElementById('enc-output').textContent = token;
+    document.getElementById('enc-stats').textContent =
+      `AES-256-GCM · PBKDF2 · ${bytes.length} bytes · ${token.length} chars · ${fmt}`;
+    document.getElementById('enc-output-wrap').style.display = 'block';
+
+    // build shareable decrypt link
+    const b64token = toB64(bytes);
+    const here = location.href.split('?')[0].split('#')[0];
+    const shareURL = here + '?token=' + encodeURIComponent(b64token) + '#decrypt';
+    const box = document.getElementById('share-url-box');
+    box.textContent = shareURL;
+    document.getElementById('share-section').classList.add('visible');
+
   } catch(e) {
-    out.textContent = 'Error: ' + e.message;
-    stats.textContent = '';
+    alert('Encryption failed: ' + e.message);
   }
 }
 
-function copyHash() {
-  const text = document.getElementById('hash-out').textContent;
-  if (!text || text.startsWith('Error')) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const el = document.getElementById('copy-status');
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 1800);
-  });
+function copyEncrypted() {
+  const text = document.getElementById('enc-output').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => flash('enc-copy-status'));
 }
 
-// ── verify ───────────────────────────────────────────────────────────────────
+function copyDecryptLink() {
+  const text = document.getElementById('share-url-box').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => flash('enc-copy2-status'));
+}
 
-async function doVerify() {
-  const url  = document.getElementById('v-url').value.trim();
-  const seed = document.getElementById('v-seed').value;
-  const hash = document.getElementById('v-hash').value.trim();
-  const algo = document.getElementById('v-algo').value;
-  const res  = document.getElementById('verify-result');
+// ── decrypt ──────────────────────────────────────────────────────────────────
 
-  if (!url || !seed || !hash) {
-    res.className = 'verify-result no-match';
-    res.textContent = '⚠ Please fill in the URL, seed, and hash to check.';
-    return;
-  }
+async function doDecrypt() {
+  const tokenRaw = document.getElementById('dec-token').value.trim();
+  const seed     = document.getElementById('dec-seed').value;
+  const resEl    = document.getElementById('dec-result');
+
+  if (!tokenRaw) { alert('Please paste an encrypted token.'); return; }
+  if (!seed)     { alert('Please enter the seed/password.'); return; }
 
   try {
-    const r = await hmacHash(url, seed, algo);
-    const match = safeCompare(hash, r.hex) || safeCompare(hash, r.b64);
-    if (match) {
-      res.className = 'verify-result match';
-      res.textContent = '✓ Hash matches — this URL and seed are valid.';
-    } else {
-      res.className = 'verify-result no-match';
-      res.textContent = '✗ No match — the hash, URL, or seed is incorrect.';
-    }
+    const bytes = autoDetectAndDecode(tokenRaw);
+    const url   = await decryptToken(bytes, seed);
+
+    document.getElementById('dec-url-value').textContent = url;
+    const link = document.getElementById('dec-open-link');
+    link.href = url;
+    resEl.className = 'url-result ok';
+
   } catch(e) {
-    res.className = 'verify-result no-match';
-    res.textContent = 'Error: ' + e.message;
+    resEl.className = 'url-result fail';
+    resEl.innerHTML = '✗ Decryption failed — wrong seed, corrupted token, or wrong format.<br><small style="opacity:.7">' + e.message + '</small>';
   }
 }
 
-// ── ui helpers ───────────────────────────────────────────────────────────────
-
-function toggleSeed(id, btn) {
-  const el = document.getElementById(id);
-  const showing = el.type === 'text';
-  el.type = showing ? 'password' : 'text';
-  btn.textContent = showing ? 'show' : 'hide';
-}
+// ── tab switching + URL param ────────────────────────────────────────────────
 
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -459,8 +482,29 @@ function switchTab(name, btn) {
   btn.classList.add('active');
 }
 
-// initial compute
-compute();
+function toggleSeed(id, btn) {
+  const el = document.getElementById(id);
+  const showing = el.type === 'text';
+  el.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? 'show' : 'hide';
+}
+
+function flash(id) {
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// on load: if ?token= in URL, pre-fill decrypt tab and switch to it
+(function() {
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+  if (token) {
+    document.getElementById('dec-token').value = token;
+    const tabs = document.querySelectorAll('.tab-btn');
+    switchTab('decrypt', tabs[1]);
+  }
+})();
 </script>
 </body>
 </html>
