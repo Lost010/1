@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Link Hasher — HMAC Tool</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --panel: #1a1a2e;
+    --card: #21213a;
+    --border: #2e2e50;
+    --accent: #7c6af7;
+    --accent2: #5b4fcf;
+    --text: #e8e8f0;
+    --muted: #7777aa;
+    --success-bg: #0d2a1a;
+    --success: #4ade80;
+    --fail-bg: #2a0d0d;
+    --fail: #f87171;
+    --mono: 'Courier New', Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 60px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #a89af9, #7c6af7 60%, #4f8ef7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 0.9rem;
+  }
+
+  .container { width: 100%; max-width: 640px; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    padding: 10px 22px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* form */
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .field { margin-bottom: 18px; }
+  input[type=text], input[type=password], select {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select { font-family: var(--sans); cursor: pointer; }
+  option { background: var(--panel); }
+
+  .seed-wrap { position: relative; }
+  .seed-wrap input { padding-right: 60px; }
+  .show-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-family: var(--sans);
+  }
+  .show-btn:hover { color: var(--text); }
+
+  .row { display: flex; gap: 14px; }
+  .row .field { flex: 1; }
+
+  /* output */
+  .output-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    color: var(--accent);
+    word-break: break-all;
+    line-height: 1.6;
+    min-height: 54px;
+    user-select: all;
+    transition: border-color .15s;
+    position: relative;
+  }
+  .output-box:empty::before {
+    content: attr(data-placeholder);
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .stats-row {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    height: 18px;
+  }
+
+  /* buttons */
+  .btn-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .btn {
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn:active { transform: scale(0.97); }
+  .btn.ghost {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.ghost:hover { background: var(--border); }
+
+  .copy-status {
+    font-size: 0.82rem;
+    color: var(--success);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .copy-status.show { opacity: 1; }
+
+  /* verify result */
+  .verify-result {
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: none;
+  }
+  .verify-result.match {
+    display: block;
+    background: var(--success-bg);
+    border: 1px solid #1a5c34;
+    color: var(--success);
+  }
+  .verify-result.no-match {
+    display: block;
+    background: var(--fail-bg);
+    border: 1px solid #5c1a1a;
+    color: var(--fail);
+  }
+
+  /* info note */
+  .note {
+    margin-top: 28px;
+    padding: 14px 18px;
+    background: #1a1a30;
+    border-left: 3px solid var(--accent2);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .note strong { color: var(--text); }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 480px) {
+    .row { flex-direction: column; gap: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔗 Link Hasher</h1>
+  <p>HMAC one-way hash for URLs — runs entirely in your browser, nothing is sent anywhere.</p>
+</header>
+
+<div class="container">
+
+  <!-- tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('generate', this)">Generate Hash</button>
+    <button class="tab-btn" onclick="switchTab('verify', this)">Verify Hash</button>
+  </div>
+
+  <!-- ── GENERATE TAB ── -->
+  <div id="tab-generate" class="tab-panel active">
+
+    <div class="field">
+      <label>URL</label>
+      <input type="text" id="url" placeholder="https://example.com/page"
+             value="https://example.com/page" oninput="compute()" />
+    </div>
+
+    <div class="field">
+      <label>Seed / Secret Key</label>
+      <div class="seed-wrap">
+        <input type="password" id="seed" placeholder="your-secret-seed"
+               value="my-secret-seed" oninput="compute()" />
+        <button class="show-btn" onclick="toggleSeed('seed', this)">show</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Algorithm</label>
+        <select id="algo" onchange="compute()">
+          <option value="SHA-256" selected>SHA-256</option>
+          <option value="SHA-384">SHA-384</option>
+          <option value="SHA-512">SHA-512</option>
+          <option value="SHA-1">SHA-1</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Output Format</label>
+        <select id="fmt" onchange="compute()">
+          <option value="hex" selected>Hex</option>
+          <option value="b64">Base64url</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Hash Output</label>
+      <div class="output-box" id="hash-out" data-placeholder="waiting for input…"></div>
+      <div class="stats-row" id="stats"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="copyHash()">Copy Hash</button>
+      <span class="copy-status" id="copy-status">✓ Copied!</span>
+    </div>
+
+    <div class="note">
+      <strong>How it works:</strong> HMAC(<em>algorithm</em>, key=<em>seed</em>, message=<em>URL</em>).
+      The seed acts as a private key — the same URL + seed always produces the same hash, but
+      <strong>you cannot reverse it</strong> back to the original URL. Use the <em>Verify</em> tab
+      to check whether a URL + seed matches a known hash.
+    </div>
+  </div>
+
+  <!-- ── VERIFY TAB ── -->
+  <div id="tab-verify" class="tab-panel">
+
+    <div class="field">
+      <label>URL to Check</label>
+      <input type="text" id="v-url" placeholder="https://example.com/page" />
+    </div>
+
+    <div class="field">
+      <label>Seed / Secret Key</label>
+      <div class="seed-wrap">
+        <input type="password" id="v-seed" placeholder="your-secret-seed" />
+        <button class="show-btn" onclick="toggleSeed('v-seed', this)">show</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Hash to Verify (hex or base64url)</label>
+      <input type="text" id="v-hash" placeholder="paste the hash here" />
+    </div>
+
+    <div class="field">
+      <label>Algorithm</label>
+      <select id="v-algo">
+        <option value="SHA-256" selected>SHA-256</option>
+        <option value="SHA-384">SHA-384</option>
+        <option value="SHA-512">SHA-512</option>
+        <option value="SHA-1">SHA-1</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="doVerify()">Verify</button>
+    </div>
+
+    <div class="verify-result" id="verify-result"></div>
+
+    <div class="note">
+      <strong>What this does:</strong> Re-computes the HMAC of the URL + seed and checks if it
+      equals the hash you provide. Accepts both hex and base64url formats. A match means the
+      URL and seed are authentic — a mismatch means something changed or the seed is wrong.
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  All computation happens in your browser via the <a href="https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto" target="_blank">Web Crypto API</a>.
+  No data leaves your device.
+</footer>
+
+<script>
+// ── core ─────────────────────────────────────────────────────────────────────
+
+async function hmacHash(url, seed, algo) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(seed),
+    { name: 'HMAC', hash: algo },
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(url));
+  const arr = Array.from(new Uint8Array(sig));
+  const hex = arr.map(b => b.toString(16).padStart(2, '0')).join('');
+  const b64 = btoa(String.fromCharCode(...arr))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return { hex, b64, bits: arr.length * 8 };
+}
+
+function safeCompare(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// ── generate ─────────────────────────────────────────────────────────────────
+
+async function compute() {
+  const url  = document.getElementById('url').value.trim();
+  const seed = document.getElementById('seed').value;
+  const algo = document.getElementById('algo').value;
+  const fmt  = document.getElementById('fmt').value;
+  const out  = document.getElementById('hash-out');
+  const stats = document.getElementById('stats');
+
+  if (!url || !seed) {
+    out.textContent = '';
+    stats.textContent = '';
+    return;
+  }
+
+  try {
+    const r = await hmacHash(url, seed, algo);
+    const val = fmt === 'hex' ? r.hex : r.b64;
+    out.textContent = val;
+    stats.textContent = `${algo} · ${r.bits} bits · ${val.length} chars · ${fmt}`;
+  } catch(e) {
+    out.textContent = 'Error: ' + e.message;
+    stats.textContent = '';
+  }
+}
+
+function copyHash() {
+  const text = document.getElementById('hash-out').textContent;
+  if (!text || text.startsWith('Error')) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById('copy-status');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1800);
+  });
+}
+
+// ── verify ───────────────────────────────────────────────────────────────────
+
+async function doVerify() {
+  const url  = document.getElementById('v-url').value.trim();
+  const seed = document.getElementById('v-seed').value;
+  const hash = document.getElementById('v-hash').value.trim();
+  const algo = document.getElementById('v-algo').value;
+  const res  = document.getElementById('verify-result');
+
+  if (!url || !seed || !hash) {
+    res.className = 'verify-result no-match';
+    res.textContent = '⚠ Please fill in the URL, seed, and hash to check.';
+    return;
+  }
+
+  try {
+    const r = await hmacHash(url, seed, algo);
+    const match = safeCompare(hash, r.hex) || safeCompare(hash, r.b64);
+    if (match) {
+      res.className = 'verify-result match';
+      res.textContent = '✓ Hash matches — this URL and seed are valid.';
+    } else {
+      res.className = 'verify-result no-match';
+      res.textContent = '✗ No match — the hash, URL, or seed is incorrect.';
+    }
+  } catch(e) {
+    res.className = 'verify-result no-match';
+    res.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── ui helpers ───────────────────────────────────────────────────────────────
+
+function toggleSeed(id, btn) {
+  const el = document.getElementById(id);
+  const showing = el.type === 'text';
+  el.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? 'show' : 'hide';
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// initial compute
+compute();
+</script>
+</body>
+</html>
